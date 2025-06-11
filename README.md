@@ -145,7 +145,7 @@ frontend/
 - **Order:** id, userId, createdAt
 - **OrderItem:** id, orderId, productId, quantity
 
-📌 You can generate the ER diagram using Prisma or tools like [dbdiagram.io](https://dbdiagram.io).
+### 📌 ER DIAGRAM
 
 ---
 
@@ -164,6 +164,3 @@ frontend/
 
 ---
 
-## ✨ Happy Coding!
-
-This project is built to help you **learn full-stack development** using modern technologies like **Next.js, NestJS, Prisma, and MySQL.**
