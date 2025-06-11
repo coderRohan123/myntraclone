@@ -146,6 +146,7 @@ frontend/
 - **OrderItem:** id, orderId, productId, quantity
 
 ### 📌 ER DIAGRAM
+![ER](https://github.com/user-attachments/assets/692d566c-4881-4f8c-bd33-c1fe91253b4b)
 
 ---
 
