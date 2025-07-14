@@ -101,6 +101,358 @@ myproject/
 export class AuthModule {}
 ```
 
+## 🎨 Next.js Concepts (Simple Guide)
+
+### 1. What is Next.js?
+Next.js is a React framework that makes building websites easier. It handles routing, server-side rendering, and optimization automatically.
+
+### 2. File Structure (App Router)
+```
+app/
+├── page.tsx              # Homepage (/)
+├── login/page.tsx        # Login page (/login)
+├── layout.tsx            # Wraps all pages
+└── user/
+    ├── cart/page.tsx     # Cart page (/user/cart)
+    ├── profile/page.tsx  # Profile page (/user/profile)
+    └── product/
+        └── [id]/page.tsx # Product page (/user/product/123)
+```
+
+### 3. Pages (How they work)
+```typescript
+// app/page.tsx - Homepage
+"use client"  // This means it runs in browser
+import { useState, useEffect } from 'react';
+import { getProductsWithFilters } from '../lib/api';
+
+export default function HomePage() {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    // Load products when page opens
+    getProductsWithFilters({ page: 1, limit: 10 })
+      .then(response => setProducts(response.data.items));
+  }, []);
+
+  return (
+    <div>
+      <h1>Welcome to our store</h1>
+      {products.map(product => (
+        <div key={product.id}>{product.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+### 4. Dynamic Routes
+```typescript
+// app/user/product/[id]/page.tsx
+export default function ProductPage({ params }) {
+  return <div>Product ID: {params.id}</div>;
+}
+// This creates: /user/product/123, /user/product/456, etc.
+```
+
+### 5. Layout (Wraps all pages)
+```typescript
+// app/layout.tsx
+import { AuthProvider } from '../context/AuthContext';
+import Header from '../components/Header';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <AuthProvider>
+          <Header />
+          {children}  {/* This is where your pages go */}
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### 6. Components (Reusable pieces)
+```typescript
+// components/Header.tsx
+"use client"
+import { useAuth } from '../context/AuthContext';
+
+export default function Header() {
+  const { user, logout } = useAuth();
+
+  return (
+    <header>
+      <h1>My Store</h1>
+      {user ? (
+        <div>
+          <span>Hello, {user.email}</span>
+          <button onClick={logout}>Logout</button>
+        </div>
+      ) : (
+        <a href="/login">Login</a>
+      )}
+    </header>
+  );
+}
+```
+
+### 7. Context (Global state)
+```typescript
+// context/AuthContext.tsx
+"use client"
+import { createContext, useContext, useState } from 'react';
+
+const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+
+  const login = (token) => {
+    localStorage.setItem('token', token);
+    setUser({ email: 'user@example.com' });
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  return context;
+};
+```
+
+### 8. API Calls (lib/api.ts)
+```typescript
+// lib/api.ts - ALL API functions
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'http://localhost:3001',
+});
+
+// Add token to every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// API functions
+export const login = (data) => api.post('/auth/login', data);
+export const getProducts = () => api.get('/catalog/products');
+export const addToCart = (data) => api.post('/cart/add', data);
+export const getCart = () => api.get('/cart');
+// ... many more functions
+```
+
+### 9. Using API Functions
+```typescript
+// In any component
+import { login, getProducts, addToCart } from '../lib/api';
+
+// Login
+const handleLogin = async () => {
+  try {
+    const response = await login({ email: 'user@example.com', password: 'password' });
+    console.log('Success:', response.data);
+  } catch (error) {
+    console.error('Failed:', error);
+  }
+};
+
+// Get products
+const loadProducts = async () => {
+  try {
+    const response = await getProducts();
+    setProducts(response.data);
+  } catch (error) {
+    console.error('Failed:', error);
+  }
+};
+
+// Add to cart
+const handleAddToCart = async (productId) => {
+  try {
+    await addToCart({ productId, quantity: 1 });
+    console.log('Added to cart');
+  } catch (error) {
+    console.error('Failed:', error);
+  }
+};
+```
+
+### 10. Forms
+```typescript
+// components/LoginForm.tsx
+"use client"
+import { useState } from 'react';
+import { login } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+
+export default function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login: authLogin } = useAuth();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await login({ email, password });
+      authLogin(response.data.accessToken);
+    } catch (error) {
+      setError('Login failed');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      {error && <div className="text-red-600">{error}</div>}
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+```
+
+### 11. State Management
+```typescript
+// useState - Local state
+const [products, setProducts] = useState([]);
+const [loading, setLoading] = useState(false);
+
+// useEffect - Run code when component mounts/changes
+useEffect(() => {
+  loadProducts();
+}, []); // Empty array = run once when component mounts
+
+// Custom hooks - Reusable logic
+const useProducts = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getProducts()
+      .then(response => setProducts(response.data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { products, loading };
+};
+```
+
+### 12. Styling (Tailwind CSS)
+```typescript
+// Simple styling with Tailwind
+<div className="bg-white rounded-lg shadow p-4">
+  <h1 className="text-2xl font-bold text-gray-900">Title</h1>
+  <p className="text-gray-600">Description</p>
+  <button className="bg-blue-600 text-white px-4 py-2 rounded">
+    Click me
+  </button>
+</div>
+
+// Responsive design
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {/* 1 column on mobile, 2 on tablet, 3 on desktop */}
+</div>
+```
+
+### 13. Loading States
+```typescript
+// Simple loading
+{loading ? (
+  <div>Loading...</div>
+) : (
+  <div>{products.map(p => <div key={p.id}>{p.name}</div>)}</div>
+)}
+
+// Loading spinner
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
+```
+
+### 14. Error Handling
+```typescript
+// Try-catch in async functions
+const loadData = async () => {
+  try {
+    const response = await getData();
+    setData(response.data);
+  } catch (error) {
+    console.error('Failed to load:', error);
+    setError('Something went wrong');
+  }
+};
+
+// Error state
+const [error, setError] = useState('');
+{error && <div className="text-red-600">{error}</div>}
+```
+
+### 15. Navigation
+```typescript
+// Link component (client-side navigation)
+import Link from 'next/link';
+
+<Link href="/user/cart">Go to Cart</Link>
+
+// Programmatic navigation
+import { useRouter } from 'next/navigation';
+
+const router = useRouter();
+router.push('/user/profile'); // Navigate to profile page
+```
+
+### 16. Environment Variables
+```typescript
+// .env.local file
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+// Use in code
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+```
+
+### 17. Key Concepts Summary
+- **"use client"** - Makes component run in browser (for state, effects, events)
+- **useState** - Local state management
+- **useEffect** - Run code when component mounts/changes
+- **Context** - Global state (auth, cart, etc.)
+- **lib/api.ts** - All API calls in one place
+- **Components** - Reusable UI pieces
+- **Pages** - Routes in app/ folder
+- **Layout** - Wraps all pages
+- **Tailwind** - Utility-first CSS framework
+
 ### 2. Controllers (@Controller)
 ```typescript
 @Controller('auth')  // Route prefix
@@ -357,6 +709,125 @@ npm run dev
 
 ## 🛠️ Development Guide
 
+### Next.js Development Examples
+
+#### 1. **Simple Component**
+```typescript
+// components/ProductCard.tsx
+export default function ProductCard({ product, onAddToCart }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-4">
+      <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
+      <h3 className="font-semibold">{product.name}</h3>
+      <p className="text-lg font-bold text-pink-600">₹{product.price}</p>
+      <button 
+        onClick={() => onAddToCart(product.id)}
+        className="w-full bg-pink-600 text-white py-2 rounded mt-2"
+      >
+        Add to Cart
+      </button>
+    </div>
+  );
+}
+```
+
+#### 2. **Simple Page**
+```typescript
+// app/user/product/[id]/page.tsx
+"use client"
+import { useState, useEffect } from 'react';
+import { getProductDetails } from '../../../lib/api';
+
+export default function ProductPage({ params }) {
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getProductDetails(params.id)
+      .then(response => setProduct(response.data))
+      .finally(() => setLoading(false));
+  }, [params.id]);
+
+  if (loading) return <div>Loading...</div>;
+  if (!product) return <div>Product not found</div>;
+
+  return (
+    <div>
+      <h1>{product.name}</h1>
+      <p>₹{product.price}</p>
+      <p>{product.description}</p>
+    </div>
+  );
+}
+```
+
+#### 3. **Simple Form**
+```typescript
+// components/LoginForm.tsx
+"use client"
+import { useState } from 'react';
+import { login } from '../lib/api';
+
+export default function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await login({ email, password });
+      console.log('Login successful:', response.data);
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+```
+
+#### 4. **Simple API Call**
+```typescript
+// In any component
+import { getProducts, addToCart } from '../lib/api';
+
+// Get products
+const loadProducts = async () => {
+  try {
+    const response = await getProducts();
+    setProducts(response.data);
+  } catch (error) {
+    console.error('Failed:', error);
+  }
+};
+
+// Add to cart
+const handleAddToCart = async (productId) => {
+  try {
+    await addToCart({ productId, quantity: 1 });
+    console.log('Added to cart');
+  } catch (error) {
+    console.error('Failed:', error);
+  }
+};
+```
+
 ### Adding a New Feature
 
 1. **Create Service in Backend**
@@ -505,6 +976,116 @@ Login Request → Validate Credentials → Generate JWT → Return Tokens
 ```
 
 ## 🎯 Best Practices
+
+### Next.js Best Practices
+
+#### 1. **Always use "use client" for interactive components**
+```typescript
+// Good - for components with state, events, effects
+"use client"
+import { useState } from 'react';
+
+export default function InteractiveComponent() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+
+// Bad - for static content
+export default function StaticComponent() {
+  return <div>Static content</div>; // No "use client" needed
+}
+```
+
+#### 2. **Keep API calls in lib/api.ts**
+```typescript
+// Good - All API functions in one place
+// lib/api.ts
+export const login = (data) => api.post('/auth/login', data);
+export const getProducts = () => api.get('/catalog/products');
+
+// Bad - API calls scattered in components
+const handleLogin = async () => {
+  const response = await fetch('/auth/login', { ... }); // Don't do this
+};
+```
+
+#### 3. **Use try-catch for error handling**
+```typescript
+// Good
+const loadData = async () => {
+  try {
+    const response = await getData();
+    setData(response.data);
+  } catch (error) {
+    console.error('Failed:', error);
+    setError('Something went wrong');
+  }
+};
+
+// Bad
+const loadData = async () => {
+  const response = await getData(); // No error handling
+  setData(response.data);
+};
+```
+
+#### 4. **Use loading states**
+```typescript
+// Good
+const [loading, setLoading] = useState(false);
+
+const handleSubmit = async () => {
+  setLoading(true);
+  try {
+    await submitData();
+  } finally {
+    setLoading(false);
+  }
+};
+
+return (
+  <button disabled={loading}>
+    {loading ? 'Submitting...' : 'Submit'}
+  </button>
+);
+```
+
+#### 5. **Use Tailwind classes for styling**
+```typescript
+// Good - Utility classes
+<div className="bg-white rounded-lg shadow p-4">
+  <h1 className="text-2xl font-bold text-gray-900">Title</h1>
+</div>
+
+// Bad - Inline styles
+<div style={{ backgroundColor: 'white', borderRadius: '8px' }}>
+  <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>Title</h1>
+</div>
+```
+
+#### 6. **Use Link for navigation**
+```typescript
+// Good - Client-side navigation
+import Link from 'next/link';
+
+<Link href="/user/cart">Go to Cart</Link>
+
+// Bad - Full page reload
+<a href="/user/cart">Go to Cart</a>
+```
+
+#### 7. **Use environment variables**
+```typescript
+// Good - Environment variables
+// .env.local
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+// In code
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+// Bad - Hardcoded values
+const apiUrl = 'http://localhost:3001';
+```
 
 ### Always Use DTOs for Validation
 ```typescript
